@@ -81,10 +81,9 @@ async def help(ctx):
 @bot.command(name="yt")
 async def yt(ctx, url):
 
-    vc = ctx.author.voice.channel
-    if not ctx.voice_client: 
-        vc = await vc.connect()
-
+    vc = ctx.voice_client
+    if not vc: 
+        vc = await ctx.author.voice.channel.connect()
     player = await utils.YTDLSource.from_url(url, loop=bot.loop, stream=True)    
     vc.play(player, after=lambda e: print('Player error: %s' % e) if e else None)
     await ctx.send('Reproduciendo: {}'.format(player.title))
