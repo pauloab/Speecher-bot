@@ -126,4 +126,18 @@ async def silenciar(ctx):
     else:
         await ctx.send("Subnormal, ni si quiera estoy hablando.")
 
+@bot.command(name="aguanta")
+async def pause(ctx):
+    if ctx.voice_client and ctx.voice_client.is_playing():
+        ctx.voice_client.pause()
+    else:
+        await ctx.send("Subnormal, ni si quiera estoy hablando.")
+
+@bot.command(name="sigue")
+async def resume(ctx):
+    if ctx.voice_client and ctx.voice_client.is_paused():
+        ctx.voice_client.resume()   
+    else:
+        await ctx.send("No se que quieres que diga xd.")
+
 bot.run(TOKEN)
