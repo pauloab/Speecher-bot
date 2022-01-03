@@ -25,7 +25,15 @@ def load_audios_navidad() -> dict:
     for filename in os.listdir("audio/navidad/"):
         if filename.endswith(".mp3"): 
             clean_filename = filename.lower().strip().removesuffix(".mp3")
-            AUDIO_LIST[clean_filename] = "audio/"+filename
+            AUDIO_LIST[clean_filename] = "audio/navidad/"+filename
+    return AUDIO_LIST
+
+def load_audios_anio_nuevo() -> dict:
+    AUDIO_LIST = {}
+    for filename in os.listdir("audio/anio/"):
+        if filename.endswith(".mp3"): 
+            clean_filename = filename.lower().strip().removesuffix(".mp3")
+            AUDIO_LIST[clean_filename] = "audio/anio/"+filename
     return AUDIO_LIST
 
 
@@ -33,6 +41,10 @@ def es_navidad() -> bool:
     fecha_actual = datetime.today()
     return fecha_actual.month == 12 and fecha_actual.day <= 25
 
+def es_anio_nuevo() -> bool:
+    fecha_actual = datetime.today()
+    # return fecha_actual.month == 12
+    return True
 
 youtube_dl.utils.bug_reports_message = lambda: ''
 
