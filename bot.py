@@ -1,7 +1,11 @@
 # speecher-bot code
 import discord
 import os
+
+from discord.errors import ClientException
 import utils
+import secrets
+import random
 
 from discord.ext import commands
 from discord.ext.commands import CommandNotFound
@@ -11,10 +15,14 @@ from ttsaudio import VOICES_LIST, getAudioFromTTSaudio
 
 AUDIOS = utils.load_audios()
 AUDIOS_NAVIDAD = utils.load_audios_navidad()
+AUDIOS_ANIO_NUEVO = utils.load_audios_anio_nuevo()
 
 load_dotenv()
 
-bot = commands.Bot(command_prefix='!')
+intents = discord.Intents().default()
+intents.members = True
+bot = commands.Bot(command_prefix='!', intents=intents)
+
 
 TOKEN = os.getenv('TOKEN')
 GUILD = os.getenv('GUILD')
@@ -25,7 +33,7 @@ FFMPEG_EXE = str(os.getenv('FFMPEG_EXE'))
 async def on_ready():
     print(f'{bot.user.name} está conectado a Discord!')
 
-@bot.command(name="speech")
+@bot.command(name="speech", brief="Reproduce en audio un texto, se puede indicar la voz al final del comando..")
 async def speech(ctx, text: str, lang: str ="es-es" ):
     if(lang.capitalize() in VOICES_LIST):
         getAudioFromTTSaudio(text, lang=lang.capitalize())
@@ -40,17 +48,14 @@ async def speech(ctx, text: str, lang: str ="es-es" ):
             channel = ctx.author.voice.channel
             voice_client = ctx.voice_client
             if not voice_client:
-                voice_client = await channel.connect()
-            elif voice_client.is_playing():
-                await ctx.send(f"Pérame we!")    
-            
+                voice_client = await channel.connect()           
             audio = discord.FFmpegPCMAudio('temp/test.mp3', executable=FFMPEG_EXE) 
             await ctx.send(f"{ctx.author.name} ha enviado un audio!")
             voice_client.play(audio, after= None)
         else:
             await ctx.send("Primero entra en un canal de voz subnormal!")
 
-@bot.command(name="voices")
+@bot.command(name="voices", brief="Lista las voces disponibles.")
 async def voices(ctx):
     voces = "Las voces tradicionales basadas en el código de lenguaje: "
     voces = voces +"\nURL: https://cloud.google.com/text-to-speech/docs/voices \n"
@@ -59,7 +64,7 @@ async def voices(ctx):
         voces = voces + voz + "\n"
     await ctx.send(voces)
 
-@bot.command(name="audios")
+@bot.command(name="audios", brief="Muestra los audios disponibles")
 async def audios(ctx):
     audios = ""
     for element in AUDIOS.keys():
@@ -67,18 +72,12 @@ async def audios(ctx):
     if utils.es_navidad():
         for element in AUDIOS_NAVIDAD.keys():
             audios += element+"\n"
+    if utils.es_anio_nuevo():
+        for element in AUDIOS_ANIO_NUEVO.keys():
+            audios += element+"\n"
     await ctx.send(audios)
 
-@bot.command(name="h")
-async def help(ctx):
-    txt = "1.!speech 'texto en comillas' - Lee el texto con la voz en español predeterminada. "
-    txt = txt + "\n2.!speech 'texto en comillas' codigo-voz  - Lee el texto con la voz que le pidas o con el codigo de lenguaje."
-    txt = txt + "\n3.!voices - Lista las voces disponibles"
-    txt = txt + "\n4.!help - Este comando ps"
-    txt = txt + "\npsdt: No uses el comando !help que me dio pereza implementarlo"
-    await ctx.send(txt)
-
-@bot.command(name="yt")
+@bot.command(name="yt", brief="Reproduce el audio de un video de YouTube.")
 async def yt(ctx, url):
 
     vc = ctx.voice_client
@@ -101,6 +100,11 @@ async def on_command_error(ctx, error):
                 audio_file = AUDIOS_NAVIDAD[command]
             else:
                 await ctx.send("Que eres tonto mmv, todavia falta para Navidad.")
+        elif(command in AUDIOS_ANIO_NUEVO.keys()):
+            if utils.es_anio_nuevo():
+                audio_file = AUDIOS_ANIO_NUEVO[command]
+            else:
+                await ctx.send("Que eres tonto mmv, todavia falta para fin de año.")
         else:
             await ctx.send("No te entiendo wey :c")
         
@@ -110,34 +114,56 @@ async def on_command_error(ctx, error):
                 voice_channel = ctx.voice_client
                 if not voice_channel:
                     voice_channel = await channel.connect()
-                elif ctx.voice_client.is_playing():
-                    await ctx.send(f"Pérame we!")
                 audio = discord.FFmpegPCMAudio(audio_file, executable=FFMPEG_EXE)
                 voice_channel.play(audio, after= None)
             else:
                 await ctx.send("Primero entra en un canal de voz subnormal!")
+    elif isinstance(error, ClientException):
+        await ctx.send("Pérame we!")
     else:
         raise error
 
-@bot.command(name="callate")
+@bot.command(name="callate", brief="Detiene el audio que se está reproduciendo.")
 async def silenciar(ctx):
     if ctx.voice_client:
         ctx.voice_client.stop()
     else:
         await ctx.send("Subnormal, ni si quiera estoy hablando.")
 
-@bot.command(name="aguanta")
+@bot.command(name="aguanta", brief="Pausa lo que esté reproduciendo.")
 async def pause(ctx):
     if ctx.voice_client and ctx.voice_client.is_playing():
         ctx.voice_client.pause()
     else:
         await ctx.send("Subnormal, ni si quiera estoy hablando.")
 
-@bot.command(name="sigue")
+@bot.command(name="sigue", brief="Sigue reproduciendo un audio en caso de haberlo pausado.")
 async def resume(ctx):
     if ctx.voice_client and ctx.voice_client.is_paused():
         ctx.voice_client.resume()   
     else:
         await ctx.send("No se que quieres que diga xd.")
+
+@bot.command(name="sortear", brief="Toma a alguien al azar del canal de voz.")
+async def sortear(ctx, qty = 1):
+    if ctx.author.voice and ctx.author.voice.channel:
+        vc = ctx.author.voice.channel
+        members = vc.members
+        member_names = []
+        for mem in members:
+            member_names.append(mem.display_name)
+        if qty <= len(members):
+            if qty == 1:
+                member = secrets.choice(member_names)
+                await ctx.send(f"El cojudo que ganó es {member}")
+            else:
+                members = random.sample(member_names, qty)
+                for i in range(qty):
+                    await ctx.send(f"{i+1} es {members[i]}")
+        else:
+            await ctx.send("A parte de feo tonto, que no vez que te falta gente pa ese sorteo.")
+    else:
+        await ctx.send("Primero entra en un canal de voz, tonto hp")
+
 
 bot.run(TOKEN)
