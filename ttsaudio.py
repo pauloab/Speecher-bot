@@ -1,6 +1,7 @@
 import requests
 import os
 from dotenv import load_dotenv
+from gtts import gTTS
 
 load_dotenv()    
 URL = os.getenv('TTSURL')
@@ -67,13 +68,24 @@ VOICES_LIST = ["Zeina",
  "Geraint"]
 
 def getAudioFromTTSaudio(text,lang="Ricardo"):
-    data = {"msg":text,"lang":lang, "source":"ttsmp3"}
-    headers = {'Content-type': 'application/x-www-form-urlencoded'}
-    response = requests.post(URL,data=data,headers=headers) 
-    MP3_URL = response.json().get("URL", None)
-    headers = {'Content-type': "audio/mpeg"}
-    if MP3_URL:
-        response = requests.get(MP3_URL,headers=headers) 
-        with open('temp/test.mp3', 'wb') as f:
-            f.write(response.content)
-    
+    Audio_name = "test.mp3"
+    if(lang.capitalize() in VOICES_LIST):
+        data = {"msg":text,"lang":lang, "source":"ttsmp3"}
+        headers = {'Content-type': 'application/x-www-form-urlencoded'}
+        response = requests.post(URL,data=data,headers=headers) 
+        MP3_URL = response.json().get("URL", None)
+        headers = {'Content-type': "audio/mpeg"}
+        if MP3_URL:
+            response = requests.get(MP3_URL,headers=headers) 
+            with open('temp/'+Audio_name, 'wb') as f:
+                f.write(response.content)
+        else:
+            raise Exception("Algo pasó con las voces personalizadas :c, inténtalo más tarde.")
+            Audio_name = None
+    else:
+        try:
+            sound = gTTS(text=text, lang=lang, slow=False).save("temp/"+Audio_name)
+        except ValueError:
+            raise Exception("No conozco ese lenguaje, a ver cuando el perro del Paulo me lo instala xd")
+            Audio_name = None
+    return Audio_name
