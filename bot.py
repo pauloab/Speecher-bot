@@ -2,7 +2,6 @@
 import discord
 import os
 
-from discord.errors import ClientException
 import utils
 import secrets
 import random
@@ -10,7 +9,6 @@ import random
 from discord.ext import commands
 from discord.ext.commands import CommandNotFound
 from dotenv import load_dotenv
-from gtts import gTTS
 from ttsaudio import VOICES_LIST, getAudioFromTTSaudio
 
 AUDIOS = utils.load_audios()
@@ -21,7 +19,7 @@ load_dotenv()
 
 intents = discord.Intents().default()
 intents.members = True
-bot = commands.Bot(command_prefix='!', intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents)
 
 
 TOKEN = os.getenv('TOKEN')
@@ -33,27 +31,50 @@ FFMPEG_EXE = str(os.getenv('FFMPEG_EXE'))
 async def on_ready():
     print(f'{bot.user.name} está conectado a Discord!')
 
-@bot.command(name="speech", brief="Reproduce en audio un texto, se puede indicar la voz al final del comando..")
-async def speech(ctx, text: str, lang: str ="es-es" ):
-    if(lang.capitalize() in VOICES_LIST):
-        getAudioFromTTSaudio(text, lang=lang.capitalize())
+@bot.event
+async def on_message(message):
+    mention = f'<@!{bot.user.id}>'
+    if mention in message.content:
+        ctx = await bot.get_context(message)
+        sanitized = message.content.replace(mention,"")
+        if not sanitized:
+            await ctx.send("Acaso te gusto bb?")
+        else:
+            await speech(ctx,*(sanitized.split(" ")))
+    elif "@" in message.content:
+        await message.channel.send("Uhhhh que vales verga dice")
     else:
+        await bot.process_commands(message)
+
+
+@bot.command(name="speech", brief="Reproduce en audio un texto, se puede indicar la voz al final del comando..")
+async def speech(ctx, *args ):
+    text = " ".join(args)
+    lang = "es-us"
+
+    if len(text) <= 0:
+        await ctx.send("Pa que chucha me llamas.")
+    else:
+        audio_name = None
         try:
-            sound = gTTS(text=text, lang=lang, slow=False).save("temp/test.mp3")
-        except ValueError:
-            lang = None
-            await ctx.send("No conozco ese lenguaje, a ver cuando el perro del Paulo me lo instala xd")
-    if lang:
-        if ctx.author.voice:
+            audio_name = getAudioFromTTSaudio(text, lang=lang.capitalize())
+        except Exception as exception:
+            await ctx.send(exception)
+        
+        if not ctx.author.voice:
+            await ctx.send("Primero entra en un canal de voz subnormal!")
+        elif audio_name:
             channel = ctx.author.voice.channel
             voice_client = ctx.voice_client
             if not voice_client:
                 voice_client = await channel.connect()           
-            audio = discord.FFmpegPCMAudio('temp/test.mp3', executable=FFMPEG_EXE) 
-            await ctx.send(f"{ctx.author.name} ha enviado un audio!")
-            voice_client.play(audio, after= None)
-        else:
-            await ctx.send("Primero entra en un canal de voz subnormal!")
+            audio = discord.FFmpegPCMAudio('temp/'+audio_name, executable=FFMPEG_EXE) 
+            if not ctx.voice_client.is_playing():
+                await ctx.send(f"{ctx.author.name} ha enviado un audio!")
+                voice_client.play(audio, after= None)
+            else:
+                await ctx.send("Pérame we!")
+            
 
 @bot.command(name="voices", brief="Lista las voces disponibles.")
 async def voices(ctx):
@@ -78,14 +99,18 @@ async def audios(ctx):
     await ctx.send(audios)
 
 @bot.command(name="yt", brief="Reproduce el audio de un video de YouTube.")
-async def yt(ctx, url):
-
+async def yt(ctx, *args):
+    url = " ".join(args)
     vc = ctx.voice_client
     if not vc: 
         vc = await ctx.author.voice.channel.connect()
     player = await utils.YTDLSource.from_url(url, loop=bot.loop, stream=True)    
-    vc.play(player, after=lambda e: print('Player error: %s' % e) if e else None)
-    await ctx.send('Reproduciendo: {}'.format(player.title))
+    
+    if not ctx.voice_client.is_playing():
+        vc.play(player, after=lambda e: print('Player error: %s' % e) if e else None)
+        await ctx.send('Reproduciendo: {}'.format(player.title))
+    else:
+        await ctx.send("Pérame we!")
 
 @bot.event
 async def on_command_error(ctx, error):
@@ -114,12 +139,13 @@ async def on_command_error(ctx, error):
                 voice_channel = ctx.voice_client
                 if not voice_channel:
                     voice_channel = await channel.connect()
-                audio = discord.FFmpegPCMAudio(audio_file, executable=FFMPEG_EXE)
-                voice_channel.play(audio, after= None)
+                if not ctx.voice_client.is_playing():
+                    audio = discord.FFmpegPCMAudio(audio_file, executable=FFMPEG_EXE)
+                    voice_channel.play(audio, after= None)
+                else:
+                    await ctx.send("Pérame we!")
             else:
                 await ctx.send("Primero entra en un canal de voz subnormal!")
-    elif isinstance(error, ClientException):
-        await ctx.send("Pérame we!")
     else:
         raise error
 
