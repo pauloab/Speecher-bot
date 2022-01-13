@@ -12,6 +12,7 @@ load_dotenv()
 FFMPEG_EXE = os.getenv('FFMPEG_EXE')
 
 
+
 def load_audios() -> dict:
     AUDIO_LIST = {}
     for filename in os.listdir("audio/"):
@@ -43,8 +44,7 @@ def es_navidad() -> bool:
 
 def es_anio_nuevo() -> bool:
     fecha_actual = datetime.today()
-    # return fecha_actual.month == 12
-    return True
+    return fecha_actual.month == 12
 
 youtube_dl.utils.bug_reports_message = lambda: ''
 
