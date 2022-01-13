@@ -17,9 +17,10 @@ AUDIOS_ANIO_NUEVO = utils.load_audios_anio_nuevo()
 
 load_dotenv()
 
+activity = discord.Activity(type=discord.ActivityType.watching, name=" porno.")
 intents = discord.Intents().default()
 intents.members = True
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix="!", activity=activity, intents=intents)
 
 
 TOKEN = os.getenv('TOKEN')
@@ -27,9 +28,11 @@ GUILD = os.getenv('GUILD')
 FFMPEG_EXE = str(os.getenv('FFMPEG_EXE'))
 
 
+
 @bot.event
 async def on_ready():
     print(f'{bot.user.name} está conectado a Discord!')
+
 
 @bot.event
 async def on_message(message):
@@ -51,6 +54,11 @@ async def on_message(message):
 async def speech(ctx, *args ):
     text = " ".join(args)
     lang = "es-us"
+
+    for word in args:
+        if "-" in word:
+            lang = word.replace("-","")
+            text = text.replace(""+word,"")
 
     if len(text) <= 0:
         await ctx.send("Pa que chucha me llamas.")
