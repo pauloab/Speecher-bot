@@ -1,4 +1,6 @@
 # speecher-bot code
+from ctypes import util
+from unicodedata import name
 import discord
 import os
 
@@ -27,7 +29,7 @@ TOKEN = os.getenv('TOKEN')
 GUILD = os.getenv('GUILD')
 FFMPEG_EXE = str(os.getenv('FFMPEG_EXE'))
 
-
+music_playlist = []
 
 @bot.event
 async def on_ready():
@@ -36,18 +38,20 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
-    mention = f'<@!{bot.user.id}>'
+    mention = f'<@{bot.user.id}>'
+    ctx = await bot.get_context(message)
     if mention in message.content:
-        ctx = await bot.get_context(message)
         sanitized = message.content.replace(mention,"")
         if not sanitized:
             await ctx.send("Acaso te gusto bb?")
         else:
             await speech(ctx,*(sanitized.split(" ")))
-    elif "@" in message.content:
+    elif "@" in message.content and ctx.author != bot.user:
+        
         await message.channel.send("Uhhhh que vales verga dice")
     else:
         await bot.process_commands(message)
+
 
 
 @bot.command(name="speech", brief="Reproduce en audio un texto, se puede indicar la voz al final del comando..")
@@ -110,15 +114,45 @@ async def audios(ctx):
 async def yt(ctx, *args):
     url = " ".join(args)
     vc = ctx.voice_client
+    player = await utils.YTDLSource.from_url(url, loop=bot.loop, stream=True)    
+    music_playlist.append(player)
     if not vc: 
         vc = await ctx.author.voice.channel.connect()
-    player = await utils.YTDLSource.from_url(url, loop=bot.loop, stream=True)    
-    
     if not ctx.voice_client.is_playing():
-        vc.play(player, after=lambda e: print('Player error: %s' % e) if e else None)
-        await ctx.send('Reproduciendo: {}'.format(player.title))
+        await utils.playNext(music_playlist,ctx,None,bot.loop)
     else:
-        await ctx.send("Pérame we!")
+        await ctx.send(f"Se ha agregado tu audio a la cola: {player.title}")
+
+@bot.command(name="cola",brief="Muestra la cola de reproducción")
+async def mostrar_cola(ctx,*args):
+    message = ""
+    for i in range(len(music_playlist)):
+        message += f"{i}. {music_playlist[i].title}\n"
+    if message:
+        await ctx.send(message)
+    else:
+        await ctx.send("La cola esta vacía.")
+
+@bot.command(name="remover",brief="Quita una cancion de la cola")
+async def remover_cola(ctx, index: int ):
+    if  index >= 0 and index < len(music_playlist):
+        song = music_playlist.pop(index)
+        await ctx.send(f"Se ha eliminado {song.title} de la cola")  
+    else:
+        await ctx.send("Chiste mmv, si no existe ese indice")
+
+@bot.command(name="siguiente",brief="Continua a la siguiente cancion en la cola")
+async def siguiente(ctx, qty = 1, *args):
+    if music_playlist:
+        for i in range(qty):
+            await utils.playNext(music_playlist,ctx,None,bot.loop)
+    else:
+        await ctx.send("Parece la cola de tu hermana, esta vacía.")
+
+@bot.command(name="limpiar",brief="Limpia la cola de audio")
+async def limpiar_cola(ctx, *args):
+    music_playlist.clear()
+    await ctx.send("Cola limpiada.")
 
 @bot.event
 async def on_command_error(ctx, error):
@@ -159,7 +193,8 @@ async def on_command_error(ctx, error):
 
 @bot.command(name="callate", brief="Detiene el audio que se está reproduciendo.")
 async def silenciar(ctx):
-    if ctx.voice_client:
+    if ctx.voice_client and ctx.voice_client.is_playing():
+        music_playlist.clear()
         ctx.voice_client.stop()
     else:
         await ctx.send("Subnormal, ni si quiera estoy hablando.")
@@ -175,8 +210,10 @@ async def pause(ctx):
 async def resume(ctx):
     if ctx.voice_client and ctx.voice_client.is_paused():
         ctx.voice_client.resume()   
+    elif music_playlist:
+        await utils.playNext(music_playlist,ctx,None, bot.loop)
     else:
-        await ctx.send("No se que quieres que diga xd.")
+        await ctx.send("No se que quieres que siga xd.")
 
 @bot.command(name="sortear", brief="Toma a alguien al azar del canal de voz.")
 async def sortear(ctx, qty = 1):
@@ -199,5 +236,15 @@ async def sortear(ctx, qty = 1):
     else:
         await ctx.send("Primero entra en un canal de voz, tonto hp")
 
+@bot.command(name="fachometro", brief="Mide tu nivel de facha")
+async def fachometro(ctx):
+    username = ctx.author.name
 
+    facha = random.Random().randint(0,100)
+    await ctx.send(f'@{username} tu nivel de facha es de {facha}')
+
+@bot.command(name="leave", brief="Me sacas del canal")
+async def leave(ctx,*args):
+    if ctx.voice_client and ctx.voice_client.is_connected():
+        await ctx.voice_client.disconnect()
 bot.run(TOKEN)

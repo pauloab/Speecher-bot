@@ -12,7 +12,6 @@ load_dotenv()
 FFMPEG_EXE = os.getenv('FFMPEG_EXE')
 
 
-
 def load_audios() -> dict:
     AUDIO_LIST = {}
     for filename in os.listdir("audio/"):
@@ -90,3 +89,16 @@ class YTDLSource(discord.PCMVolumeTransformer):
         filename = data['url'] if stream else ytdl.prepare_filename(data)
         return cls(discord.FFmpegPCMAudio(filename, executable=FFMPEG_EXE, **ffmpeg_options), data=data)
 
+async def playNext(music_playlist : list, ctx, e, loop):
+    vc = ctx.voice_client
+    if e:
+        print(f'error de reproduccion {e}')
+        await ctx.send("Error al reproducir")
+    elif vc.is_playing():
+            vc.stop()  
+    elif music_playlist:
+        song = music_playlist.pop(0)
+        if not vc: 
+            vc = await ctx.author.voice.channel.connect()
+        vc.play(song, after=lambda er:asyncio.run_coroutine_threadsafe( playNext(music_playlist,ctx,er,loop), loop) )
+        await ctx.send(f'Reproduciendo: {song.title}')
